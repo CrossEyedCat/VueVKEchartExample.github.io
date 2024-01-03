@@ -9,7 +9,6 @@
     "deploy": "gh-pages -d dist",
     "predeploy": "vite build"
   },
-  "homepage": "https://CrossEyedCat.github.io/VueVKEchartExample.github.io/",
   "dependencies": {
     "bootstrap": "^5.2.3",
     "echarts": "^5.4.2",
