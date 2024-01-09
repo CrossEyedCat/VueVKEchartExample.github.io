@@ -1,5 +1,5 @@
 <script setup>
-import {onBeforeMount, ref, watch, computed, onMounted, reactive} from 'vue';
+import {computed, onBeforeMount, onMounted, ref, watch} from 'vue';
 import _ from 'lodash';
 import FriendDetails from "@/components/friendDetails.vue";
 
@@ -90,22 +90,38 @@ const buildFriendsList = async () => {
   }
   for (let user of original.value) {
     const userFriends = await getUserFriends(user.id);
+    console.log(userFriends)
+    for (let i = 0; i < userFriends.length; i++){
+      userFriends[i].counters = await getUserCounts(userFriends[i])
+    }
     friends.value = mergeFriendsLists(friends.value, userFriends, user);
   }
-
   friends.value.sort((a, b) => {
-    // Сортируем сначала по фамилии
     const lastNameComparison = a.last_name.localeCompare(b.last_name);
     if (lastNameComparison !== 0) {
       return lastNameComparison;
     }
-
-    // Если фамилии одинаковы, сортируем по имени
     return a.first_name.localeCompare(b.first_name);
   });
 
 };
+const getUserCounts = async (user) => {
+  return new Promise((resolve) => {
+    VK.Api.call("users.get", {
+      user_ids: user.id,
+      v: VERSION,
+      fields: ['counters'],
+    }, r => {
+      if(r.response){
+        resolve(r.response[0].counters);
+      }
+      resolve();
+    })
+  });
+};
+
 const getUserFriends = async (userId) => {
+  await new Promise((resolve) => setTimeout(resolve, 1000));
   return new Promise((resolve) => {
     VK.Api.call("friends.get", {
       user_id: userId,
@@ -255,6 +271,7 @@ const resetSelectedFriend = () => {
                   <span class="friend-name">{{ friend.last_name }} {{ friend.first_name }}</span><br/>
                   <span class="friend-age">{{ calculateAge(friend.bdate) }} лет</span><br/>
                   <span class="friend-gender">Пол: {{ friend.sex === 1 ? 'Ж' : 'М' }}</span><br/>
+                  <span class="friends-count">Друзей:{{friend.counters ? friend.counters.friends: "?"}}</span><br/>
                   <span class="friends-count">Общих друзей:{{friend.friend_count}}</span><br/>
                 </div>
               </div>
