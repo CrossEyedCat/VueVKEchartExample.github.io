@@ -1,5 +1,5 @@
 <script setup>
-import { onBeforeMount, ref, watch, computed, onMounted } from 'vue';
+import {onBeforeMount, ref, watch, computed, onMounted, reactive} from 'vue';
 import _ from 'lodash';
 import FriendDetails from "@/components/friendDetails.vue";
 
@@ -11,6 +11,28 @@ const users = ref(JSON.parse(localStorage.getItem('users'))||[]);
 const original = ref(JSON.parse(localStorage.getItem('original')) || []);
 const friends = ref([]);
 const wallPosts = ref([]);
+const authState = ref({
+  isLogged: false,
+  user: null
+});
+const login = () => {
+  VK.Auth.login(response => {
+    console.log(response)
+    if (response.session) {
+      authState.value.isLogged = true;
+      authState.value.user = response.session.user;
+      console.log(authState.isLogged)
+      // Дополнительные действия после авторизации, если нужно
+    }
+  }, VK.access.FRIENDS);
+};
+
+const logout = () => {
+  VK.Auth.logout(() => {
+    authState.value.isLogged = false;
+    authState.value.user = null;
+  });
+};
 const userIsInOriginal = computed(() => {
   return user => original.value.some(u => u.id === user.id);
 });
@@ -33,6 +55,16 @@ const getWallOfUser = async (userId) => {
     console.error("Error fetching wall data:", error);
   }
 };
+onMounted(() => {
+  VK.Auth.getLoginStatus(response => {
+    console.log(response)
+    if (response.status === "connected") {
+      authState.value.isLogged = true;
+      authState.value.user = response.session.user;
+      console.log(authState.isLogged)
+    }
+  });
+});
 const addToOriginal = (user) => {
   const index = original.value.findIndex(u => u.id === user.id);
   if (index !== -1) {
@@ -162,71 +194,106 @@ const resetSelectedFriend = () => {
 </script>
 
 <template>
-  <div v-if="!selectedFriend">
-    <h1 class="header">Найти людей</h1>
-    <div class="search-container">
-      <input
-          type="text"
-          v-model="searchQuery"
-          placeholder="Поиск..."
-          @input="handleSearch"
-          class="search-input"
-      >
-    </div>
-    <div v-if="users" class="users-window">
-      <div class="users-list">
-        <div
-            v-for="user in users"
-            :key="user.id"
-            :class="['user-item', { 'is-original': userIsInOriginal(user) }]"
-            @click="addToOriginal(user)"
-        >
-          <img :src="user.photo_200" alt="" class="user-avatar">
-          <span class="user-name">{{ user.last_name }} {{ user.first_name }}</span>
-        </div>
-      </div>
-    </div>
-    <div class="main-container">
-      <!-- Левая панель -->
-      <div class="left-panel">
-          <div class="original-window">
-            <h2 class="header">Исходный</h2>
-            <div>
-              <!-- Отображаем список друзей из переменной "friends" -->
-              <div v-for="user in original" :key="user.id">
-                <img :src="user.photo_200" alt="" class="user-avatar">
-                <span class="user-name">{{ user.last_name }} {{ user.first_name }}</span>
-              </div>
-            </div>
-          </div>
-      </div>
-      <button @click="buildFriendsList" class="build-button">Построить</button>
-      <div class="right-panel">
-        <!-- Правая панель -->
-        <div class="friends-window">
-          <h2 class="header">Друзья</h2>
-          <div class="friends-list">
-            <div v-for="friend in friends" :key="friend.id" class="friend-item" :style="{ backgroundColor: getBackgroundColor(friend.friend_count), color:getTextColor(friend.friend_count) }" @click="handleFriendItemClick(friend)">
-              <img :src="friend.photo_200" alt="" class="user-avatar">
-              <div class="friend-info">
-                <span class="friend-name">{{ friend.last_name }} {{ friend.first_name }}</span><br/>
-                <span class="friend-age">{{ calculateAge(friend.bdate) }} лет</span><br/>
-                <span class="friend-gender">Пол: {{ friend.sex === 1 ? 'Ж' : 'М' }}</span><br/>
-                <span class="friends-count">Общих друзей:{{friend.friend_count}}</span><br/>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
+  <div class="login-button">
+    <a class="login-link" v-if="!authState.isLogged" @click="login">
+      Авторизоваться
+    </a>
   </div>
-  <div class="friend-details-container" v-if="selectedFriend">
-    <FriendDetails :friend="selectedFriend" :wallPosts="wallPosts" @reset-friend="resetSelectedFriend"/>
+  <div class="logout-button">
+    <a class="logout-link" v-if="authState.isLogged" @click="logout">
+      Выход
+    </a>
+  </div>
+  <div v-if="authState.isLogged">
+    <div v-if="!selectedFriend">
+      <h1 class="header">Найти людей</h1>
+      <div class="search-container">
+        <input
+            type="text"
+            v-model="searchQuery"
+            placeholder="Поиск..."
+            @input="handleSearch"
+            class="search-input"
+        >
+      </div>
+      <div v-if="users" class="users-window">
+        <div class="users-list">
+          <div
+              v-for="user in users"
+              :key="user.id"
+              :class="['user-item', { 'is-original': userIsInOriginal(user) }]"
+              @click="addToOriginal(user)"
+          >
+            <img :src="user.photo_200" alt="" class="user-avatar">
+            <span class="user-name">{{ user.last_name }} {{ user.first_name }}</span>
+          </div>
+        </div>
+      </div>
+      <div class="main-container">
+        <!-- Левая панель -->
+        <div class="left-panel">
+            <div class="original-window">
+              <h2 class="header">Исходный</h2>
+              <div>
+                <!-- Отображаем список друзей из переменной "friends" -->
+                <div v-for="user in original" :key="user.id">
+                  <img :src="user.photo_200" alt="" class="user-avatar">
+                  <span class="user-name">{{ user.last_name }} {{ user.first_name }}</span>
+                </div>
+              </div>
+            </div>
+        </div>
+        <button @click="buildFriendsList" class="build-button">Построить</button>
+        <div class="right-panel">
+          <!-- Правая панель -->
+          <div class="friends-window">
+            <h2 class="header">Друзья</h2>
+            <div class="friends-list">
+              <div v-for="friend in friends" :key="friend.id" class="friend-item" :style="{ backgroundColor: getBackgroundColor(friend.friend_count), color:getTextColor(friend.friend_count) }" @click="handleFriendItemClick(friend)">
+                <img :src="friend.photo_200" alt="" class="user-avatar">
+                <div class="friend-info">
+                  <span class="friend-name">{{ friend.last_name }} {{ friend.first_name }}</span><br/>
+                  <span class="friend-age">{{ calculateAge(friend.bdate) }} лет</span><br/>
+                  <span class="friend-gender">Пол: {{ friend.sex === 1 ? 'Ж' : 'М' }}</span><br/>
+                  <span class="friends-count">Общих друзей:{{friend.friend_count}}</span><br/>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="friend-details-container" v-if="selectedFriend">
+      <FriendDetails :friend="selectedFriend" :wallPosts="wallPosts" @reset-friend="resetSelectedFriend"/>
 
+    </div>
   </div>
 </template>
 
 <style scoped>
+.login-button {
+  float: right; /* Размещение справа на панели навигации */
+  margin-right: 20px; /* Отступ справа для разделения кнопок */
+}
+
+.logout-button {
+  float: right; /* Размещение справа на панели навигации */
+  margin-right: 20px; /* Отступ справа для разделения кнопок */
+}
+
+/* Стили для ссылок в кнопках */
+.login-link,
+.logout-link {
+  text-decoration: none; /* Убрать подчеркивание в ссылках */
+  color: black; /* Цвет текста */
+  font-weight: bold; /* Жирный шрифт */
+  transition: color 0.2s; /* Плавный переход цвета текста */
+}
+
+.login-link:hover,
+.logout-link:hover {
+  color: #007BFF; /* Изменить цвет текста при наведении */
+}
 .header{
   text-align: center;
 }
@@ -305,6 +372,7 @@ const resetSelectedFriend = () => {
 .right-panel {
   width: 45%;
 }
+
 .build-button{
   width:100px;
   height:50px;
