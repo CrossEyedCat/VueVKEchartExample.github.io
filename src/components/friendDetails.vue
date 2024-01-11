@@ -1,11 +1,11 @@
 <template>
   <div class="friend-details">
-    <h2>{{ friend.first_name }} {{ friend.last_name }}</h2>
-    <img :src="friend.photo_200" alt="">
+    <h2>{{friend? friend.first_name:"" }} {{ friend?friend.last_name:""  }}</h2>
+    <img :src="friend? friend.photo_200:''" alt="">
   </div>
   <div class="original-window">
     <h2 class="header">В друзьях:</h2>
-    <div>
+    <div v-if="friend">
       <div v-for="user in friend.friend" :key="user.id">
         <img :src="user.photo_200" alt="" class="user-avatar">
         <span class="user-name">{{ user.last_name }} {{ user.first_name }}</span>
@@ -24,29 +24,53 @@
       </div>
     </div>
   </div>
-  <button @click="resetSelectedFriend" class="reset-button">
-    <span>&larr;</span> Вернуться
-  </button>
+  <router-link :to="{ name: 'HomePage' }">
+    <button class="reset-button">
+      <span>&larr;</span> Вернуться
+    </button>
+  </router-link>
 </template>
 
 <script>
-import {onBeforeMount, onMounted, ref} from "vue";
+import {computed, onBeforeMount, onMounted, ref, watch} from 'vue';
+import _ from 'lodash';
+import {useRoute} from "vue-router";
 
+const APP_ID = 51824315;
+const VERSION = "5.199";
 export default {
-  props: {
-    friend: Object,
-    wallPosts: null,
-  },
-  emits: ['reset-friend'],
+  setup() {
+    const route = useRoute();
+    const friend = JSON.parse(route.params.friend);
 
-  setup(props, { emit }) {
-    const resetSelectedFriend = () => {
-      emit('reset-friend');
+    let wallPosts = ref([]);
+
+    const getWallOfUser = async (userId) => {
+      try {
+        VK.Api.call("wall.get", {
+          owner_id: userId,
+          v: VERSION,
+          extended: 1,
+        }, r => {
+          if (r.response) {
+            wallPosts.value= r.response.items;
+          } else {
+            wallPosts.value= [];
+          }
+        });
+      } catch (error) {
+        console.error("Error fetching wall data:", error);
+      }
     };
+
+    onMounted(() => {
+      getWallOfUser(friend.id); // Вызываем метод при монтировании компонента
+    });
 
     return {
-      resetSelectedFriend,
-    };
+      friend,
+      wallPosts
+    }
   },
 };
 </script>

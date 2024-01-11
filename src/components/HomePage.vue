@@ -1,7 +1,6 @@
 <script setup>
 import {computed, onBeforeMount, onMounted, ref, watch} from 'vue';
 import _ from 'lodash';
-import FriendDetails from "@/components/friendDetails.vue";
 
 const APP_ID = 51824315;
 const VERSION = "5.199";
@@ -15,54 +14,18 @@ const authState = ref({
   isLogged: false,
   user: null
 });
-const login = () => {
-  VK.Auth.login(response => {
-    console.log(response)
-    if (response.session) {
-      authState.value.isLogged = true;
-      authState.value.user = response.session.user;
-    }
-  }, VK.access.FRIENDS);
-};
-
-const logout = () => {
-  VK.Auth.logout(() => {
-    authState.value.isLogged = false;
-    authState.value.user = null;
-  });
-};
-/*const userIsInOriginal = computed(() => {
+const userIsInOriginal = computed(() => {
   return user => original.value.some(u => u.id === user.id);
 });
-const getWallOfUser = async (userId) => {
-  console.log(userId)
-  try {
-    VK.Api.call("wall.get", {
-      owner_id: userId,
-      v: VERSION,
-      extended: 1,
-    }, r => {
-      if(r.response) {
-        wallPosts.value = r.response.items;
-      }
-      else{
-        wallPosts.value=[];
-      }
-    })
-  } catch (error) {
-    console.error("Error fetching wall data:", error);
-  }
-};*/
 onMounted(() => {
   VK.Auth.getLoginStatus(response => {
-    console.log(response)
     if (response.status === "connected") {
       authState.value.isLogged = true;
       authState.value.user = response.session.user;
     }
   });
 });
-/*const addToOriginal = (user) => {
+const addToOriginal = (user) => {
   const index = original.value.findIndex(u => u.id === user.id);
   if (index !== -1) {
     original.value.splice(index, 1);
@@ -87,7 +50,6 @@ const buildFriendsList = async () => {
   }
   for (let user of original.value) {
     const userFriends = await getUserFriends(user.id) || [];
-    console.log(userFriends)
     for (let i = 0; i < userFriends.length; i++){
       userFriends[i].counters = await getUserCounts(userFriends[i])
     }
@@ -101,8 +63,8 @@ const buildFriendsList = async () => {
     return a.first_name.localeCompare(b.first_name);
   });
 
-};*/
-/*const getUserCounts = async (user) => {
+};
+const getUserCounts = async (user) => {
   return new Promise((resolve) => {
     VK.Api.call("users.get", {
       user_ids: user.id,
@@ -164,14 +126,14 @@ const handleSearch = _.debounce(() => {
     users.value = r.response.items;
     loading.value = false;
   })
-}, 300);*/
+}, 300);
 
 onBeforeMount(async () => {
   await VK.init({
     apiId: APP_ID
   });
 });
-/*const calculateAge = (birthdate) => {
+const calculateAge = (birthdate) => {
   if (birthdate) {
     const birthdateParts = birthdate.split('.');
     if (birthdateParts.length === 3) {
@@ -181,7 +143,7 @@ onBeforeMount(async () => {
     }
   }
   return '?';
-};*/
+};
 // Function to save searchQuery to local storage
 const saveSearchQueryToLocalStorage = () => {
   localStorage.setItem('searchQuery', searchQuery.value);
@@ -198,33 +160,77 @@ watch(users, saveUsersToLocalStorage)
 watch(searchQuery, saveSearchQueryToLocalStorage);
 watch(original.value, saveOriginalToLocalStorage);
 
-const selectedFriend = ref(null);
 
 // Function to handle click on friend-item
-/*const handleFriendItemClick = async (friend) => {
-  console.log(friend)
-  await getWallOfUser(friend.id);
-  selectedFriend.value = friend;
-};
-const resetSelectedFriend = () => {
-  selectedFriend.value = null;
-};*/
 </script>
 
 <template>
-  <div id="app">
-  <div class="login-button">
-    <a class="login-link" v-if="!authState.isLogged" @click="login">
-      Авторизоваться
-    </a>
-  </div>
-  <div class="logout-button">
-    <a class="logout-link" v-if="authState.isLogged" @click="logout">
-      Выход
-    </a>
-  </div>
-    <router-view>
-    </router-view>
+  <div v-if="authState.isLogged">
+    <div>
+      <h1 class="header">Найти людей</h1>
+      <div class="search-container">
+        <input
+            type="text"
+            v-model="searchQuery"
+            placeholder="Поиск..."
+            @input="handleSearch"
+            class="search-input"
+        >
+      </div>
+      <div v-if="users" class="users-window">
+        <div class="users-list">
+          <div
+              v-for="user in users"
+              :key="user.id"
+              :class="['user-item', { 'is-original': userIsInOriginal(user) }]"
+              @click="addToOriginal(user)"
+          >
+            <img :src="user.photo_200" alt="" class="user-avatar">
+            <span class="user-name">{{ user.last_name }} {{ user.first_name }}</span>
+          </div>
+        </div>
+      </div>
+      <div class="main-container">
+        <!-- Левая панель -->
+        <div class="left-panel">
+          <div class="original-window">
+            <h2 class="header">Исходный</h2>
+            <div>
+              <!-- Отображаем список друзей из переменной "friends" -->
+              <div v-for="user in original" :key="user.id">
+                <img :src="user.photo_200" alt="" class="user-avatar">
+                <span class="user-name">{{ user.last_name }} {{ user.first_name }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <button @click="buildFriendsList" class="build-button">Построить</button>
+        <div class="right-panel">
+          <!-- Правая панель -->
+          <div class="friends-window">
+            <h2 class="header">Друзья</h2>
+            <div class="friends-list">
+              <div v-for="friend in friends" :key="friend.id" class="friend-item" :style="{ backgroundColor: getBackgroundColor(friend.friend_count), color:getTextColor(friend.friend_count) }">
+                <router-link :to="{ name: 'FriendDetails', params: { friend: JSON.stringify(friend) } }">
+                  <img :src="friend.photo_200" alt="" class="user-avatar">
+                  <div class="friend-info">
+                    <span class="friend-name">{{ friend.last_name }} {{ friend.first_name }}</span><br/>
+                    <span class="friend-age">{{ calculateAge(friend.bdate) }} лет</span><br/>
+                    <span class="friend-gender">Пол: {{ friend.sex === 1 ? 'Ж' : 'М' }}</span><br/>
+                    <span class="friends-count">Друзей:{{friend.counters ? friend.counters.friends: "?"}}</span><br/>
+                    <span class="friends-count">Общих друзей:{{friend.friend_count}}</span><br/>
+                  </div>
+                </router-link>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+<!--    <div class="friend-details-container" v-if="selectedFriend">
+      <FriendDetails :friend="selectedFriend" :wallPosts="wallPosts" @reset-friend="resetSelectedFriend"/>
+
+    </div>-->
   </div>
 </template>
 
