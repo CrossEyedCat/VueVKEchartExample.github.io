@@ -8,7 +8,7 @@ const loading = ref(false);
 const searchQuery = ref(localStorage.getItem('searchQuery') || '');
 const users = ref(JSON.parse(localStorage.getItem('users'))||[]);
 const original = ref(JSON.parse(localStorage.getItem('original')) || []);
-const friends = ref([]);
+const friends = ref(JSON.parse(localStorage.getItem('friends'))||[]);
 const wallPosts = ref([]);
 const authState = ref({
   isLogged: false,
@@ -156,10 +156,13 @@ const saveOriginalToLocalStorage = () => {
 const saveUsersToLocalStorage = () => {
   localStorage.setItem('users', JSON.stringify(users.value));
 };
+const saveFriendsToLocalStorage = () => {
+  localStorage.setItem('friends', JSON.stringify(friends.value));
+};
 watch(users, saveUsersToLocalStorage)
 watch(searchQuery, saveSearchQueryToLocalStorage);
 watch(original.value, saveOriginalToLocalStorage);
-
+watch(friends, saveFriendsToLocalStorage)
 
 // Function to handle click on friend-item
 </script>
